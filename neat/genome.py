@@ -19,20 +19,27 @@ class Genome:
 
 			innov_count = 0
 
-			# Create randomly-weighed connections between every in and out node
-			for j in range(num_outputs):
-				self.connections_by_out[num_inputs + 1 + j] = []
-				for i in range(num_inputs + 1):
-					in_node = i
-					out_node = num_inputs + 1 + j
-					weight = (random.random() * 2) - 1
+			# # Create randomly-weighed connections between every in and out node
+			# for j in range(num_outputs):
+			# 	self.connections_by_out[num_inputs + 1 + j] = []
+			# 	for i in range(num_inputs + 1):
+			# 		in_node = i
+			# 		out_node = num_inputs + 1 + j
+			# 		weight = (random.random() * 2) - 1
 
-					conn = ConnectionGene(in_node, out_node, weight, innov_count)
-					self.connections.append(conn)
-					self.connections_by_out[num_inputs + 1 + j].append(conn)
+			# 		conn = ConnectionGene(in_node, out_node, weight, innov_count)
+			# 		self.connections.append(conn)
+			# 		self.connections_by_out[num_inputs + 1 + j].append(conn)
 
-					# TODO: DOCUMENT
-					innov_count += 1
+			# 		# TODO: DOCUMENT
+			# 		innov_count += 1
+			for i in range(num_outputs):
+				weight = random.random()
+				conn = ConnectionGene(num_inputs, num_inputs + 1 + i, weight, innov_count)
+				innov_count += 1
+
+				self.connections.append(conn)
+				self.connections_by_out[num_inputs + 1 + i] = [conn]
 		else:
 			self.connections = connections
 			self.connections_by_out = connections_by_out
@@ -281,7 +288,7 @@ class Genome:
 		start_t = time.time()
 
 		while len(nodes_to_place) > 0:
-			if time.time() - start_t > 3: # FIXME: DEBUG
+			if time.time() - start_t > 1: # FIXME: DEBUG
 				print(nodes_to_place, node_layer, self.nodes)
 				print(self.connections)
 				assert False
@@ -393,7 +400,6 @@ class Genome:
 		"""
 
 		# TODO: DOC DOC DOC
-
 		genome_a = parent_a.genome
 		genome_b = parent_b.genome
 
@@ -462,6 +468,7 @@ class Genome:
 					if parent_a_better:
 						continue
 
+			new_gene = copy.deepcopy(new_gene) # NOTE: If connections are shared disabling is shared!!!
 			connections.append(new_gene)
 			if new_gene.out_node in connections_by_out:
 				connections_by_out[new_gene.out_node].append(new_gene)

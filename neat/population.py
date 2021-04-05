@@ -12,7 +12,8 @@ class Population:
 		for _ in range(population_size):
 			self.organisms.append(Organism(Genome(num_inputs, num_outputs)))
 
-		self.global_innovation_counter = UniqueId((num_inputs + 1) * num_outputs) # TODO: DOCUMENT
+		# self.global_innovation_counter = UniqueId((num_inputs + 1) * num_outputs) # TODO: DOCUMENT
+		self.global_innovation_counter = UniqueId(num_outputs)
 		self.global_node_counter = UniqueId(num_inputs + 1 + num_outputs)
 
 		self.species = []
