@@ -52,20 +52,24 @@ def old_main():
 		frame_clock.tick(30) # Limit framerate to 30 FPS
 		# print(frame_clock.get_fps())
 
+CARS_PER_GENERATION = 60
+
 def new_main():
 	pygame.init()
 	screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 	frame_clock = pygame.time.Clock()
 
-	start_pos, walls, checkpoints = game_map.gen_map()
+	fitness_history = []
+	network_history = []
 
-	CARS_PER_GENERATION = 50
+	start_pos, walls, checkpoints = game_map.gen_map()
 
 	game = Game(CARS_PER_GENERATION, start_pos, walls, checkpoints)
 
 	population = Population(CARS_PER_GENERATION, 4, 4)
 	cur_generation = 0
 	networks = [organism.genome.as_neural_network() for organism in population.organisms]
+
 	last_controls = [None]*CARS_PER_GENERATION
 	for i in range(CARS_PER_GENERATION):
 		last_controls[i] = ({'forward': False, 'left': False, 'backward': False, 'right': False})
@@ -80,6 +84,9 @@ def new_main():
 			elif event.type == pygame.KEYDOWN:
 				if event.key == pygame.K_f:
 					print(game.get_cars_fitness())
+				elif event.key == pygame.K_s:
+					print('fitness_history =', fitness_history)
+					print('network_history =', network_history)
 
 		fitness = game.get_cars_fitness()
 
@@ -98,6 +105,13 @@ def new_main():
 		if all(game.dead) or running_time > 1000:
 			print(f'Finished generation {cur_generation}')
 			print(f'Average: {sum(fitness)/len(fitness):5.2f} Max: {max(fitness):5.2f}')
+
+			fitness_history.append(fitness)
+			best_idx = 0
+			for i in range(1, CARS_PER_GENERATION):
+				if fitness[i] > fitness[best_idx]:
+					best_idx = i
+			network_history.append(population.organisms[best_idx].genome.connections)
 
 			try:
 				for i in range(CARS_PER_GENERATION):
@@ -131,10 +145,10 @@ def new_main():
 
 		for i in range(CARS_PER_GENERATION):
 			network_output = networks[i].evaluate_input(cars_info[i])
-			last_controls[i]['forward'] = network_output[0] >= 0.5
-			last_controls[i]['left'] = network_output[1] >= 0.5
-			last_controls[i]['backward'] = network_output[2] >= 0.5
-			last_controls[i]['right'] = network_output[3] >= 0.5
+			last_controls[i]['forward'] = network_output[0] >= 0
+			last_controls[i]['left'] = network_output[1] >= 0
+			last_controls[i]['backward'] = network_output[2] >= 0
+			last_controls[i]['right'] = network_output[3] >= 0
 
 		ui.draw_speedometer(screen, game.cars[best_car].get_normalized_speed())
 

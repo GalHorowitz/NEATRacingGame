@@ -4,6 +4,9 @@ class NeuralConnection:
 	def __init__(self, in_node, weight):
 		self.in_node = in_node
 		self.weight = weight
+	
+	def __repr__(self):
+		return f'NeuralConnection(in_node={self.in_node}, weight={self.weight})'
 
 class NeuralNetwork:
 	def __init__(self, num_inputs, num_outputs, evaluation_order, connections):
@@ -20,6 +23,9 @@ class NeuralNetwork:
 
 		# `connections` is a 2D list, which holds the list of connections that go into each node
 		self.connections = connections
+	
+	def __repr__(self):
+		return f'NeuralNetwork(num_inputs={self.num_inputs}, num_outputs={self.num_outputs}, evaluation_order={repr(self.evaluation_order)}, connections={repr(self.connections)})'
 
 	def evaluate_input(self, network_input):
 		"""
@@ -52,4 +58,4 @@ class NeuralNetwork:
 		return node_values[self.num_inputs+1:][:self.num_outputs]
 
 def sigmoid(x):
-	return 1/(1 + math.exp(-4.9 * x))
+	return (2/(1 + math.exp(-4.9 * x)))-1

@@ -11,11 +11,11 @@ class Genome:
 	def __init__(self, num_inputs, num_outputs, connections=None, connections_by_out=None, nodes=None):
 		self.num_inputs = num_inputs
 		self.num_outputs = num_outputs
-		self.nodes = list(range(num_inputs + 1 + num_outputs)) # Additional bias node
 
 		if connections is None or connections_by_out is None or nodes is None:
 			self.connections = []
 			self.connections_by_out = dict()
+			self.nodes = list(range(num_inputs + 1 + num_outputs)) # Additional bias node
 
 			innov_count = 0
 
@@ -34,7 +34,7 @@ class Genome:
 			# 		# TODO: DOCUMENT
 			# 		innov_count += 1
 			for i in range(num_outputs):
-				weight = random.random()
+				weight = (random.random() * 2) - 1
 				conn = ConnectionGene(num_inputs, num_inputs + 1 + i, weight, innov_count)
 				innov_count += 1
 
@@ -145,7 +145,7 @@ class Genome:
 					# If this is a new link, than we can add it
 					if not already_exists:
 						# We initialize the link with a random weight
-						weight = random.random()
+						weight = (random.random() * 2) - 1
 
 						# We first check if this exact mutation already happened in this generation,
 						# and if so, reuse its innovation numbers to prevent 'innovation explosion'
@@ -179,7 +179,7 @@ class Genome:
 				# For each connection we either randomize it completely (rarely) or perturb it
 				# slightly
 				if random.random() < WEIGHT_RANDOMIZED_CHANCE:
-					conn.weight = random.random()
+					conn.weight = (random.random() * 2) - 1
 				else:
 					# TODO: Try with other values of sigma, or simple random, this is arbitary
 					conn.weight += random.gauss(0, 0.3)
@@ -213,6 +213,10 @@ class Genome:
 					excess_genes += 1
 				gene_a += 1
 			else:
+				# TODO: Should we really be ignoring disabled connections? Should we keep disabled
+				# connections around (don't prune them on cross over) and use them for matching
+				# topologies? But then, what happens when a genome with the disabled gene is crossed
+				# over with a genome with the gene enabled
 				if self.connections[gene_a].disabled:
 					gene_a += 1
 					continue
@@ -245,15 +249,14 @@ class Genome:
 				else:
 					disjoint_genes += 1
 					gene_b += 1
-		
-		if matching_genes == 0:
-			print(self.connections, other.connections)
-			assert False
 
 		# The final distance is then calculated based on formula (1) from the paper
 		distance_part_1 = COMPATABILITY_COEFFICIENT_1 * excess_genes
 		distance_part_2 = COMPATABILITY_COEFFICIENT_2 * disjoint_genes
-		distance_part_3 = COMPATABILITY_COEFFICIENT_3 * (weight_difference_sum / matching_genes)
+		if matching_genes != 0:
+			distance_part_3 = COMPATABILITY_COEFFICIENT_3 * (weight_difference_sum / matching_genes)
+		else:
+			distance_part_3 = 0
 		return distance_part_1 + distance_part_2 + distance_part_3
 
 	def get_node_layers(self, node_id_normalization=None):
