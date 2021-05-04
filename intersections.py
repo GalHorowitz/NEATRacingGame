@@ -1,5 +1,5 @@
 import math
-from math_utils import Vector, Ray
+from math_utils import Vector
 
 def ray_rect_intersection(ray, rect):
 	"""
@@ -88,12 +88,13 @@ def rect_rect_intersection(rect_a, rect_b):
 	return could_not_seperate_using_a and could_not_seperate_using_b
 
 def rect_rect_intersection_helper(rect_a, rect_b):
-	# FIXME: NO DOC STRING
+	"""
+	Checks if rect_a's segments can be used to seperate the rectangles
+	"""
 
 	for i in range(4):
 		seg_point_a = rect_a[i]
 		seg_point_b = rect_a[(i+1)%4]
-
 
 		check_point = rect_a[(i+2)%4]
 		check_point_side = point_side_of_line(check_point, seg_point_a, seg_point_b)

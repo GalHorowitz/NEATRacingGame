@@ -2,15 +2,11 @@ import random
 import math
 
 from neat.genome import Genome
-from neat.organism import Organism
-from neat.unique_id import UniqueId
 from neat.parameters import *
 
-global_species_id = UniqueId()
-
 class Species:
-	def __init__(self, representative_organism):
-		self.id = global_species_id.next_id()
+	def __init__(self, representative_organism, global_species_counter):
+		self.id = global_species_counter.next_id()
 		self.representative = representative_organism.genome
 		self.organisms = [representative_organism]
 
@@ -28,10 +24,6 @@ class Species:
 		Calculates an adjusted fitness for each organism in the species which takes into account
 		different factors which should contribute to faster growth
 		"""
-
-		# TODO: Fitness age stagnation
-		# TODO: Competitive coevolution
-		# TODO: Niche-ing
 
 		for organism in self.organisms:
 			# For each organism in the species we calculate the 'shared' fitness
@@ -107,26 +99,22 @@ class Species:
 
 	def reproduce(self, population, cur_gen_innovations):
 		"""
-		TODO: Add doc
+		Generates the species' organisms' expected number of offspring.
 		Assumption: The species in the population are sorted by fitness, the organisms in each
 		species are sorted by fitness.
 		"""
 
-		assert(self.expected_offspring == 0 or len(self.organisms) > 0) # FIXME: REMOVE THIS
-
 		offspring = []
 
+		# We compute the total fitness once for use during reproduction
 		total_fitness = 0
 		for organism in self.organisms:
 			total_fitness += organism.fitness
 
 		for i in range(self.expected_offspring):
-			# TODO: SUPER CHAMPS (Population stagnation)
-
 			if i == 0 and self.expected_offspring > 5:
 				# If we expect more than 5 offspring, we want to ensure that the champion is carried
 				# over to the next generation, so the first offspring is just a clone of the champion
-				# TODO: Maybe always keep the species champ?
 				offspring.append(self.organisms[0].genome.clone())
 
 			elif len(self.organisms) == 1 or random.random() < MUTATION_ONLY_OFFSPRING:

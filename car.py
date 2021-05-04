@@ -10,7 +10,7 @@ RAY_ANGLE = math.radians(25)
 
 class Car:
 	"""
-	Represents a car in-game.
+	Represents a car in-game
 	"""
 
 	# Holds the sprite used to draw any instance of Car. Lazily loaded by `Car.get_sprite()`
@@ -26,7 +26,7 @@ class Car:
 
 		self.velocity = 0
 		self.acceleration = 0
-	
+
 	def physics_update(self, delta_time):
 		"""
 		Updates the car's position and velocity based on its acceleration, given that `delta_time`
@@ -42,7 +42,7 @@ class Car:
 
 		if math.fabs(self.velocity) > MAX_VELOCITY:
 			self.velocity *= MAX_VELOCITY/(math.fabs(self.velocity))
-		
+
 	def set_move_acceleration(self, acceleration):
 		"""
 		Sets the car's total acceleration for the next physics update, also applies friction.
@@ -52,11 +52,10 @@ class Car:
 		if math.fabs(self.velocity) > 0:
 			friction_magnitude = min(self.velocity, FRICTION_ACCEL)
 			self.acceleration -= math.copysign(friction_magnitude, self.velocity)
-	
+
 	def draw(self, screen, screen_mapping):
 		"""
-		FIXME: WRONG DOC
-		Draws the car on `screen` relative to the provided `camera_position`.
+		Draws the car on `screen`, with the position adjusted based on the provided `screen_mapping`
 		"""
 
 		rotated_sprite = pygame.transform.rotate(Car.get_sprite(), self.direction * 180/math.pi)
@@ -66,8 +65,12 @@ class Car:
 		sprite_position = self.position - sprite_middle
 		screen_position = sprite_position + screen_mapping
 		screen.blit(rotated_sprite, screen_position.as_tuple())
-	
+
 	def get_sight_rays(self):
+		"""
+		Returns a list of Ray objects representing the sensors of the car
+		"""
+
 		rays = []
 		for ray_angle in (-RAY_ANGLE, 0, RAY_ANGLE):
 			start_pos = self.position
@@ -94,6 +97,9 @@ class Car:
 		return car_rect
 
 	def get_normalized_speed(self):
+		"""
+		Returns a normalized value representing the magnitude of the velocity
+		"""
 		return math.fabs(self.velocity)/MAX_VELOCITY
 
 	@staticmethod

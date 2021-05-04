@@ -5,16 +5,24 @@ from neat.unique_id import UniqueId
 from neat.parameters import *
 
 class Population:
+	"""
+	Represents the collection of organsims which make up a generation
+	"""
+
 	def __init__(self, population_size, num_inputs, num_outputs):
 		self.population_size = population_size
 
+		# We initially create random-weighted organisms
 		self.organisms = []
 		for _ in range(population_size):
 			self.organisms.append(Organism(Genome(num_inputs, num_outputs)))
 
-		# self.global_innovation_counter = UniqueId((num_inputs + 1) * num_outputs) # TODO: DOCUMENT
+		# The global innovation counter is used to assign unique ids to innovations across generations
 		self.global_innovation_counter = UniqueId(num_outputs)
+		# The global node counter is used to assign unique ids to nodes across organisms
 		self.global_node_counter = UniqueId(num_inputs + 1 + num_outputs)
+		# The global species counter is used to assign unique ids to species across generations
+		self.global_species_counter = UniqueId()
 
 		self.species = []
 
@@ -46,8 +54,8 @@ class Population:
 				# the existing species, we create a new species with the organism as the
 				# representative
 				organism.species = len(self.species)
-				self.species.append(Species(organism))
-		
+				self.species.append(Species(organism, self.global_species_counter))
+
 		# Remove species which have no organisms in this population. We iterate backwards so we can
 		# delete from the list while iterating
 		for i in range(len(self.species)-1, -1, -1):
@@ -68,8 +76,6 @@ class Population:
 
 		# We then sort the species by the fitness of the most fit organism in each species
 		self.species.sort(key=lambda x: x.organisms[0].fitness, reverse=True)
-
-		# TODO: Flag lowest performing species over age 20 every 30 generations (Competitive coevolution)
 
 		for species in self.species:
 			# For each species, we adjust the fitness of all its organisms based on some factors
@@ -112,8 +118,6 @@ class Population:
 			# Add the extra child to the best species
 			self.species[best_species].expected_offspring += self.population_size - total_expected_offspring
 
-		# TODO: Population-level stagnation
-
 		new_generation = []
 		cur_gen_innovations = []
 		for species in self.species:
@@ -122,28 +126,7 @@ class Population:
 
 			new_generation.extend(species.reproduce(self, cur_gen_innovations))
 
-			# age species
-			# regenerate species list
-			# clear species state
-
 		self.organisms = [Organism(genome) for genome in new_generation]
-
-		"""
-		1. If the maximum fitness of a species did not improve in 15 generations, the networks in
-		the stagnant species were not allowed to reproduce.
-
-		2. The champion of each species with more than five networks was copied into the next
-		generation unchanged.
-
-		3. Every species is assigned a potentially different number of offspring in proportion to
-		the sum of adjusted fitnesses f'_i of its member organisms. Species then reproduce by first
-		eliminating the lowest performing members from the population. The entire population is then
-		replaced by the offspring of the remaining organisms in each species.
-
-		4. In rare cases when the fitness of the entire population does not improve for more than 20
-		generations, only the top two species are allowed to reproduce, refocusing the search into
-		the most promising spaces.
-		"""
 
 	def calc_average_fitness(self):
 		"""

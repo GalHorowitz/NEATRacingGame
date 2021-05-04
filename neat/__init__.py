@@ -1,1 +1,1 @@
-# Exists to make python realize this is a module so we can use `neat.` imports
+# Exists to make python realize this is a module so we can use `neat.something` imports

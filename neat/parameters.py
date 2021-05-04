@@ -1,3 +1,7 @@
+"""
+All tunable parameters of the NEAT genetic algorithm
+"""
+
 COMPATABILITY_COEFFICIENT_1 = 1.0
 COMPATABILITY_COEFFICIENT_2 = 1.0
 COMPATABILITY_COEFFICIENT_3 = 0.4

@@ -3,42 +3,41 @@ import copy
 import time
 
 from neat.connection_gene import ConnectionGene
-from neat.neural_network import NeuralNetwork, NeuralConnection
-from neat.parameters import *
 from neat.innovation import Innovation
+from neat.neural_connection import NeuralConnection
+from neat.neural_network import NeuralNetwork
+from neat.parameters import *
 
 class Genome:
+	"""
+	The genetic encoding of an invdivdual, comprised of the network topology and weights
+	"""
+
 	def __init__(self, num_inputs, num_outputs, connections=None, connections_by_out=None, nodes=None):
 		self.num_inputs = num_inputs
 		self.num_outputs = num_outputs
 
+		# The genome is either created with no initial configuration, in which case we need to
+		# generate it randomally, or we are just asked to create a genome with a specific configuration
 		if connections is None or connections_by_out is None or nodes is None:
 			self.connections = []
 			self.connections_by_out = dict()
 			self.nodes = list(range(num_inputs + 1 + num_outputs)) # Additional bias node
 
+			# The initial connections between the bias node and the output nodes are the only
+			# connections which are not created by mutation: we thus assign to them a consistent
+			# innovation count which is the same in all genomes created randomally, so the connection
+			# would appear to match topologically
 			innov_count = 0
-
-			# # Create randomly-weighed connections between every in and out node
-			# for j in range(num_outputs):
-			# 	self.connections_by_out[num_inputs + 1 + j] = []
-			# 	for i in range(num_inputs + 1):
-			# 		in_node = i
-			# 		out_node = num_inputs + 1 + j
-			# 		weight = (random.random() * 2) - 1
-
-			# 		conn = ConnectionGene(in_node, out_node, weight, innov_count)
-			# 		self.connections.append(conn)
-			# 		self.connections_by_out[num_inputs + 1 + j].append(conn)
-
-			# 		# TODO: DOCUMENT
-			# 		innov_count += 1
 			for i in range(num_outputs):
+				# We generate a random weight in the range (-1, 1]
 				weight = (random.random() * 2) - 1
 				conn = ConnectionGene(num_inputs, num_inputs + 1 + i, weight, innov_count)
 				innov_count += 1
 
 				self.connections.append(conn)
+				# The `connections_by_out` dictionary tracks a list of connections that go into the
+				# specific node
 				self.connections_by_out[num_inputs + 1 + i] = [conn]
 		else:
 			self.connections = connections
@@ -46,12 +45,17 @@ class Genome:
 			self.nodes = nodes
 
 	def clone(self):
+		"""
+		Creates a deep copy of this genome
+		"""
+
 		return copy.deepcopy(self)
 
 	def mutate(self, cur_gen_innovations, global_innovation_counter, global_node_counter):
 		"""
-		Mutates the genome in-place
-		TODO: document `cur_gen_innovations`
+		Mutates the genome in-place. `cur_gene_innovations` is a global list shared between all
+		`mutate` calls in the current generation which tracks all new topological innovations made
+		this generation.
 		"""
 
 		# We choose to either do one of the topological mutations, or try to do some
@@ -85,12 +89,15 @@ class Genome:
 					innovation_num_a, innovation_num_b, new_node)
 				cur_gen_innovations.append(new_innov)
 
+			# We keep track of the new node
 			self.nodes.append(new_node)
 
-			# TODO: BASICALLY REDONE, DOC!
-
+			# We disable the existing connection we split
 			connection_to_split.disabled = True
 
+			# We construct two new connections: `conn_a` is the connection from the existing in_node
+			# to the new node, and `conn_b` is the connection from the new node to the existing
+			# out_node
 			conn_a = ConnectionGene(connection_to_split.in_node, new_node, 1.0, innovation_num_a)
 			conn_b = ConnectionGene(new_node, connection_to_split.out_node, connection_to_split.weight,
 				innovation_num_b)
@@ -101,7 +108,7 @@ class Genome:
 			# We add a new `connection_by_out` list for the new node, which currently contains only
 			# the new connection
 			self.connections_by_out[new_node] = [conn_a]
-
+			# We add the new connection the out node's list
 			self.connections_by_out[connection_to_split.out_node].append(conn_b)
 
 		elif random.random() < LINK_MUTATION_CHANCE:
@@ -171,9 +178,6 @@ class Genome:
 						# We found a valid link, so we don't have to keep retrying
 						break
 		elif random.random() < WEIGHT_MUTATION_CHANCE:
-			# TODO: The paper's source code has many more kinds of non-topological mutations,
-			# but the paper only mentions these two. Might be worth to try adding them.
-
 			for conn in self.connections:
 				if conn.disabled: continue
 				# For each connection we either randomize it completely (rarely) or perturb it
@@ -191,8 +195,6 @@ class Genome:
 		disjoint genes, and the average weight differences of matching genes.
 		"""
 
-		# The number of total genes to count is the maximum of the two
-		gene_amount = max(len(self.connections), len(other.connections))
 		excess_genes = 0
 		disjoint_genes = 0
 		matching_genes = 0
@@ -262,11 +264,15 @@ class Genome:
 	def get_node_layers(self, node_id_normalization=None):
 		"""
 		Returns an array which maps each node in the genome to a layer number if the genome would be
-		represented as a simple feed-forward neural network. # TODO: DOC
+		represented as a simple feed-forward neural network. `node_id_normalization` is an optional
+		dictionary which maps this genome's node ids into sequential ids that will be used for
+		neural network generation
 		"""
 
+		use_normalization = node_id_normalization is not None
+
 		# Initially the nodes do not have a layer assigned to them
-		if node_id_normalization is not None:
+		if use_normalization:
 			node_layer = [None] * len(self.nodes)
 		else:
 			node_layer = dict()
@@ -282,20 +288,11 @@ class Genome:
 		# assigned layer yet, else this implies that a loop exists in the network. Because of this
 		# we know that after O(n) iterations (each one taking O(n) time) we will have figured out
 		# the layer of every node, so in total this will take O(n^2) time.
-		# TODO: This is slow - use BFS
 
 		# This is the list of node indexes we did not asssign a layer to yet
 		nodes_to_place = list(range(self.num_inputs + 1, len(self.nodes)))
 
-		#FIXME: DEBUG
-		start_t = time.time()
-
 		while len(nodes_to_place) > 0:
-			if time.time() - start_t > 1: # FIXME: DEBUG
-				print(nodes_to_place, node_layer, self.nodes)
-				print(self.connections)
-				assert False
-
 			# As long as we did not assign a layer to every node, we try to find a node which we
 			# can assign a layer to
 			for loc, node_idx in enumerate(nodes_to_place):
@@ -307,35 +304,26 @@ class Genome:
 				# layer we have figured out already. If we did not, this node cannot be assigned a
 				# layer yet, but if it did, then its layer must be at least one more than the
 				# maximal layer of incoming nodes.
-				if node not in self.connections_by_out:
-					print(node)
-					print(self.nodes)
-					print(self.connections)
-					print(self.connections_by_out)
-					assert False
 				for conn in self.connections_by_out[node]:
 					if conn.disabled: continue
-					try:
-						if node_id_normalization is not None:
-							if node_layer[node_id_normalization[conn.in_node]] is None:
-								finalized = False
-								break
-							else:
-								max_prev_layer = max(max_prev_layer, node_layer[node_id_normalization[conn.in_node]])
+
+					if use_normalization:
+						if node_layer[node_id_normalization[conn.in_node]] is None:
+							finalized = False
+							break
 						else:
-							if conn.in_node not in node_layer:
-								finalized = False
-								break
-							else:
-								max_prev_layer = max(max_prev_layer, node_layer[conn.in_node])
-					except:
-						print(self.nodes, conn, node_id_normalization, node_layer)
-						assert False
+							max_prev_layer = max(max_prev_layer, node_layer[node_id_normalization[conn.in_node]])
+					else:
+						if conn.in_node not in node_layer:
+							finalized = False
+							break
+						else:
+							max_prev_layer = max(max_prev_layer, node_layer[conn.in_node])
 
 				if finalized:
 					# All incoming links are from finalized nodes, so we can assign the layer of
 					# this node
-					if node_id_normalization is not None:
+					if use_normalization:
 						node_layer[node_id_normalization[node]] = max_prev_layer + 1
 					else:
 						node_layer[node] = max_prev_layer + 1
@@ -349,7 +337,9 @@ class Genome:
 		Converts the genome into a simple feed-forward neural network
 		"""
 
-		# TODO: DOC
+		# We generate a dictionary which maps the genome's node ids into their sequential index in
+		# the genome. This is done because the `NeuralNetwork` representation expects us to refer
+		# to its nodes in this sequential form
 		node_id_normalization = dict()
 		for idx, node in enumerate(self.nodes):
 			node_id_normalization[node] = idx
@@ -361,11 +351,7 @@ class Genome:
 		# which ensures that a node is evalauted only if all incoming nodes have already been
 		# evaluated
 		evaluation_order = []
-		try:
-			last_layer = max(node_layer)
-		except:
-			print(node_layer) # FIXME: DEBUG
-			exit()
+		last_layer = max(node_layer)
 
 		for layer_idx in range(1, last_layer + 1):
 			# For each layer, we add all nodes that belong to it to the evaluation order
@@ -377,11 +363,15 @@ class Genome:
 		# For each node we supply a list of connections which go into it
 		network_connections = [None]*len(self.nodes)
 		for node_id in self.connections_by_out:
+			# We normalize the node id
 			normal_node_id = node_id_normalization[node_id]
+
 			node_conns = self.connections_by_out[node_id]
 			network_connections[normal_node_id] = []
 
 			if node_conns is not None:
+				# For every enabled connection, we create a `NeuralConnection`, the light-weight
+				# structure the neural network implemention uses
 				for conn in node_conns:
 					if conn.disabled: continue
 					neural_conn = NeuralConnection(node_id_normalization[conn.in_node], conn.weight)
@@ -392,23 +382,16 @@ class Genome:
 
 	@staticmethod
 	def from_crossover(parent_a, parent_b):
-
 		"""
-		self.num_inputs = num_inputs
-		self.num_outputs = num_outputs
-		self.nodes = ...
-
-		self.connections = []
-		self.connections_by_out = [None] * (num_inputs + 1)
+		Creates a new genome by crossing over the the genomes of the two parents
 		"""
 
-		# TODO: DOC DOC DOC
 		genome_a = parent_a.genome
 		genome_b = parent_b.genome
 
 		connections = []
 		connections_by_out = dict()
-		nodes = nodes = list(range(genome_a.num_inputs + 1 + genome_a.num_outputs))
+		nodes = list(range(genome_a.num_inputs + 1 + genome_a.num_outputs))
 
 		parent_a_better = parent_a.fitness > parent_b.fitness
 		if parent_a.fitness == parent_b.fitness:
@@ -421,6 +404,7 @@ class Genome:
 			# Excess genes are the genes which do not match in the end, so if we ran out of genes
 			# in either genome, all the remaining genes are excess
 			if gene_a == len(genome_a.connections):
+				# We only inherit excess genes from the better parent
 				if parent_a_better:
 					break
 				new_gene = genome_b.connections[gene_b]
@@ -428,6 +412,7 @@ class Genome:
 				if new_gene.disabled:
 					continue
 			elif gene_b == len(genome_b.connections):
+				# We only inherit excess genes from the better parent
 				if not parent_a_better:
 					break
 				new_gene = genome_a.connections[gene_a]
@@ -447,6 +432,8 @@ class Genome:
 				innovation_a = genome_a.connections[gene_a].innovation_num
 				innovation_b = genome_b.connections[gene_b].innovation_num
 				if innovation_a == innovation_b:
+					# If we found a matching gene, we randomally pick a parent to inherit the gene
+					# from
 					if random.random() < 0.5:
 						new_gene = genome_a.connections[gene_a]
 					else:
@@ -462,22 +449,28 @@ class Genome:
 					# to advance the gene index in that genome
 					gene_a += 1
 
+					# We only inherit disjoint genes from the better parent
 					if not parent_a_better:
 						continue
 				else:
 					new_gene = genome_b.connections[gene_b]
 					gene_b += 1
 
+					# We only inherit disjoint genes from the better parent
 					if parent_a_better:
 						continue
 
-			new_gene = copy.deepcopy(new_gene) # NOTE: If connections are shared disabling is shared!!!
+			# We create a copy of the inherited gene, appending it to the connections list
+			new_gene = copy.deepcopy(new_gene)
 			connections.append(new_gene)
+			# We also update the connections_by_out dictionary
 			if new_gene.out_node in connections_by_out:
 				connections_by_out[new_gene.out_node].append(new_gene)
 			else:
 				connections_by_out[new_gene.out_node] = [new_gene]
 
+			# If either side of the inherited connection is a node we have not encountered before we
+			# add it to the node list
 			if new_gene.in_node not in nodes:
 				nodes.append(new_gene.in_node)
 			if new_gene.out_node not in nodes:
